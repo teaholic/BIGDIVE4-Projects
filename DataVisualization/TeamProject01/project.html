@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Team Project 01</title>
+  <script src="d3.min.js"></script>
+</head>
+<body>
+    <h3>Olympic Athletes 2012</h3>
+    <p>A chart that shows number of athletes by medals, which are above or below the median weight, optionally highlighting the gender</p>
+    <p>Median Weight: 70kg</p>
+    <div style="text-align: right">
+        <button id="belowThresholdInput">Lower Weight</button>
+        <button id="aboveThresholdInput">Higher Weight</button>
+        <button id="reset">All</button>
+    </div>
+    <br/>
+    <div style="text-align: right">
+        <button id="enableColor">Gender highlight</button>
+        <button id="disableColor">No highlight</button>
+    </div>
+    <br/>
+    <script>
+            
+        var chartWidth = 500;
+        var chartHeight = 500;
+        
+        var goldIndex = 1;
+        var silverIndex = 0;
+        var bronzeIndex = 2;
+        
+        var medianWeight = 70.0;
+        
+        var column_width = 150;
+        var podium_base_height = 50;
+        var athlete_height = 1;
+        
+        // load data from a local CSV file and convert to a JSON array 
+        d3.csv('olympics_2012.csv', processData);
+        
+        function setupChart()
+        {
+            d3.select('body').append('svg');
+
+            var svg = d3.select('svg')
+                .attr('width', chartWidth)
+                .attr('height', chartHeight)
+                .attr('style', 'border: solid 1px black;');
+            
+            return svg;
+        }
+        
+        function processData(data)
+        {    
+            var svg = setupChart();
+            
+            var newDataset = 
+                [
+                    { key: "silver_medals",
+                      values: []
+                    },
+                    { key: "gold_medals",
+                      values: []
+                    },
+                    { key: "bronze_medals",
+                      values: []
+                    }
+                ];
+            
+            // Bug in the CSV file. Some values are string!
+            data.forEach(function(d) 
+                            {
+                                d.Weight = +d.Weight;
+                                d.Height = +d.Height;
+                                d.Gold = +d.Gold;
+                                d.Silver = +d.Silver;
+                                d.Bronze = +d.Bronze;
+                                if(d.Medals === 'YES')
+                                {
+                                    if(d.Gold > 0)
+                                        newDataset[silverIndex].values.push(d)
+                                    else if(d.Silver > 0)
+                                        newDataset[goldIndex].values.push(d)
+                                    else if(d.Bronze > 0)
+                                        newDataset[bronzeIndex].values.push(d)
+                                }
+                            });
+                        
+        
+            var maxAthletes = d3.max([newDataset[goldIndex].values.length, newDataset[silverIndex].values.length, newDataset[bronzeIndex].values.length])
+            
+            // scalers
+            var scalerX = d3.scale.linear()
+                    .domain([0, 150])
+                    .range([0,chartWidth/3]);
+            
+            var scalerY = d3.scale.linear()
+                    .domain([0, maxAthletes+podium_base_height*2])
+                    .range([0,chartHeight]);
+            
+              var groups = svg.selectAll('g')
+                .data(newDataset)
+                .enter()
+                .append('g')
+                .style('fill', '#EDEDED')
+                .attr('transform', function(d, i) { return 'translate(' + (i*scalerX(column_width+1)) + ', 0)'});
+              
+              groups.append('rect')
+                    .style('fill', 'blue')
+                    .attr('width', function(d, i) { return scalerX(column_width); })
+                    .attr('height', function(d, i) { return scalerY(i == bronzeIndex ? 0 : i == goldIndex ? podium_base_height*2 : podium_base_height); })
+                    .style('fill', function(d, i) { return (i == bronzeIndex ? 'brown' : i == goldIndex ? 'gold' : 'silver'); })
+                    .attr('transform', function(d, i) {
+                        return 'translate(0, ' + (chartHeight - scalerY(maxAthletes + (i == bronzeIndex ? 0 : i == goldIndex ? podium_base_height*2 : podium_base_height))) + ')'; 
+                    })
+              
+            groups.append('rect')
+                .attr('width', function(d, i) { return scalerX(column_width); })
+                .attr('height', function(d, i) { return scalerY(maxAthletes); })
+                .attr('transform', function(d, i) {
+                        return 'translate(0,' + (chartHeight - scalerY(maxAthletes)) + ')';
+                });
+                
+            var athletes = groups.selectAll('.athletes')
+                .data(function(d) { return d.values; })
+                .enter()
+                .append('rect')
+                .attr('class', 'athletes')
+                .attr('width', scalerX(column_width-1))
+                .attr('height', scalerY(athlete_height))
+                .style('fill', '#474747')
+                .attr('y', function(d, i) 
+                      {
+                        return (chartHeight - i*(scalerY(athlete_height)));
+                })
+                
+            // Adding user interaction to the buttons
+            d3.selectAll('Button').on('click', function() {
+            var buttonId = d3.select(this).attr('id');
+
+                if(buttonId === 'disableColor')
+                {
+                    athletes.transition()
+                        .style('fill', '#474747')
+                }
+                else if(buttonId === 'enableColor')
+                {
+                    athletes.transition()
+                        .style('fill', '#474747')
+                        .transition()
+                        .style('fill', function(d, i) { 
+                            if( d.Sex === 'M')
+                                return '#3366FF';
+                            else
+                                return '#FF0066';
+                            });
+                }
+                else
+                {
+                    // Filter enables to choose which item apply the logic to
+                    athletes.transition()
+                        .style('opacity', 0)
+                        .filter(function(d) {
+                            switch(buttonId)
+                            {
+                                case 'belowThresholdInput':
+                                    return d.Weight <= medianWeight;
+                                case 'aboveThresholdInput':
+                                    return d.Weight >= medianWeight;
+                                default:
+                                    return true;
+                            }
+                        })
+                        .transition()
+                        .attr('y', function(d, i)  // Filter also provdes the correct index of the resulting items
+                          {
+                            return (chartHeight - i*(scalerY(athlete_height)));
+                          })
+                        .style('opacity', 1);
+                 }
+            });
+        }
+    </script>
+</body>
+</html>
