@@ -5,25 +5,26 @@
   <title>Team Project 01</title>
   <script src="d3.min.js"></script>
 </head>
-<body>
-    <h3>Olympic Athletes 2012</h3>
-    <p>A chart that shows number of athletes by medals, which are above or below the median weight, optionally highlighting the gender</p>
-    <p>Median Weight: 70kg</p>
-    <div style="text-align: right">
-        <button id="belowThresholdInput">Lower Weight</button>
-        <button id="aboveThresholdInput">Higher Weight</button>
-        <button id="reset">All</button>
+<body style="font-family: Courier, sans-serif" align="center">
+    <h2 style="text-align: center">Olympic Athletes 2012</h2>
+    <p style="text-align: center">Number of <em>athletes</em>, above or below the median <em>weight</em>,</p>
+    <p style="text-align: center">displayed by won <em>medals</em> and optionally by <em>gender</em>.</p>
+    <p style="text-align: center">Median Weight: 70kg</p>
+    <div style="text-align: center">
+        <button id="belowThresholdInput" style="font-family: Courier, sans-serif">Lower Weight Range</button>
+        <button id="aboveThresholdInput" style="font-family: Courier, sans-serif">Higher Weight Range</button>
+        <button id="reset" style="font-family: Courier, sans-serif">All Weight Ranges</button>
     </div>
     <br/>
-    <div style="text-align: right">
-        <button id="enableColor">Gender highlight</button>
-        <button id="disableColor">No highlight</button>
+    <div style="text-align: center">
+        <button id="enableColor" style="font-family: Courier, sans-serif">Toggle Gender On</button>
+        <button id="disableColor" style="font-family: Courier, sans-serif">Toggle Gender Off</button>
     </div>
     <br/>
     <script>
             
-        var chartWidth = 500;
-        var chartHeight = 500;
+        var chartWidth = 600;
+        var chartHeight = 600;
         
         var goldIndex = 1;
         var silverIndex = 0;
@@ -41,11 +42,11 @@
         function setupChart()
         {
             d3.select('body').append('svg');
-
             var svg = d3.select('svg')
                 .attr('width', chartWidth)
                 .attr('height', chartHeight)
-                .attr('style', 'border: solid 1px black;');
+                .attr('position', 'relative')
+//                .attr('style', 'border: solid 1px black;');
             
             return svg;
         }
@@ -67,6 +68,8 @@
                     }
                 ];
             
+            data.sort(function(a,b) { return a.Sex < b.Sex; });
+            
             // Bug in the CSV file. Some values are string!
             data.forEach(function(d) 
                             {
@@ -75,6 +78,7 @@
                                 d.Gold = +d.Gold;
                                 d.Silver = +d.Silver;
                                 d.Bronze = +d.Bronze;
+                
                                 if(d.Medals === 'YES')
                                 {
                                     if(d.Gold > 0)
@@ -86,7 +90,8 @@
                                 }
                             });
                         
-        
+            
+            
             var maxAthletes = d3.max([newDataset[goldIndex].values.length, newDataset[silverIndex].values.length, newDataset[bronzeIndex].values.length])
             
             // scalers
@@ -95,26 +100,46 @@
                     .range([0,chartWidth/3]);
             
             var scalerY = d3.scale.linear()
-                    .domain([0, maxAthletes+podium_base_height*2])
+                    .domain([0, maxAthletes+podium_base_height*3])
                     .range([0,chartHeight]);
             
               var groups = svg.selectAll('g')
                 .data(newDataset)
                 .enter()
                 .append('g')
-                .style('fill', '#EDEDED')
+                .style('fill', '#EDEDED') //function(d, i) { return (i == bronzeIndex ? 'brown' : i == goldIndex ? 'gold' : 'silver'); })
                 .attr('transform', function(d, i) { return 'translate(' + (i*scalerX(column_width+1)) + ', 0)'});
               
-              groups.append('rect')
-                    .style('fill', 'blue')
+            var podiumGroups = groups.append('g')
+                                    .attr('transform', function(d, i) {
+                                                return 'translate(0, ' + (chartHeight - scalerY(maxAthletes + (i == bronzeIndex ? podium_base_height : i == goldIndex ? podium_base_height*1.5 : podium_base_height*1.2))) + ')'; 
+                                            })
+            
+            
+            podiumGroups.append('rect')
+                    .style('fill', 'white')
                     .attr('width', function(d, i) { return scalerX(column_width); })
-                    .attr('height', function(d, i) { return scalerY(i == bronzeIndex ? 0 : i == goldIndex ? podium_base_height*2 : podium_base_height); })
-                    .style('fill', function(d, i) { return (i == bronzeIndex ? 'brown' : i == goldIndex ? 'gold' : 'silver'); })
-                    .attr('transform', function(d, i) {
-                        return 'translate(0, ' + (chartHeight - scalerY(maxAthletes + (i == bronzeIndex ? 0 : i == goldIndex ? podium_base_height*2 : podium_base_height))) + ')'; 
-                    })
-              
+                    .attr('height', function(d, i) { return scalerY(i == bronzeIndex ? podium_base_height : i == goldIndex ? podium_base_height*1.5 : podium_base_height*1.2); })
+                    .transition()
+                    .duration(3000)
+                    .delay(3000)
+                    .style('fill', function(d, i) { return (i == bronzeIndex ? '#cc5200' : i == goldIndex ? '#cc9900' : '#a3a3a3'); })
+            
+            podiumGroups.append('text')
+                .text(function(d,i) { return (i == bronzeIndex ? 'Bronze' : i == goldIndex ? 'Gold' : 'Silver'); })
+                .style('font-family', 'Courier')
+                .attr('text-anchor', 'middle')
+                .attr('transform', function(d, i) {
+                
+                    var width = scalerX(column_width)/2;
+                    var height = scalerY(i == bronzeIndex ? podium_base_height : i == goldIndex ? podium_base_height*1.5 : podium_base_height*1.2) -10;
+                    return 'translate(' + width + ', ' + height  + ')'; 
+                })
+            
             groups.append('rect')
+                .transition()
+                .duration(3000)
+//                .delay(250)
                 .attr('width', function(d, i) { return scalerX(column_width); })
                 .attr('height', function(d, i) { return scalerY(maxAthletes); })
                 .attr('transform', function(d, i) {
@@ -126,18 +151,24 @@
                 .enter()
                 .append('rect')
                 .attr('class', 'athletes')
-                .attr('width', scalerX(column_width-1))
+                .attr('width', scalerX(column_width))
                 .attr('height', scalerY(athlete_height))
                 .style('fill', '#474747')
                 .attr('y', function(d, i) 
                       {
+                        return (chartHeight);
+                })
+            athletes.transition()
+                .duration(3000)
+                .delay(6000)
+                .attr('y', function(d, i) 
+                      {
                         return (chartHeight - i*(scalerY(athlete_height)));
                 })
-                
+            
             // Adding user interaction to the buttons
             d3.selectAll('Button').on('click', function() {
             var buttonId = d3.select(this).attr('id');
-
                 if(buttonId === 'disableColor')
                 {
                     athletes.transition()
